@@ -71,14 +71,14 @@ Stop-Transcript
 #------------------------------------------
 function beforeOutput
 {
-Get-PublicFolder \ -recurse -ResultSize Unlimited | where{$_.MailEnabled -eq "True"} | Get-MailPublicFolder -resultSize Unlimited | Out-File Mail-Public-Folders-Before.csv
+Get-PublicFolder \ -recurse -ResultSize Unlimited | where{$_.MailEnabled -eq "True"} | Get-MailPublicFolder -resultSize Unlimited | ft Alias, Identity -AutoSize| Out-File Mail-Public-Folders-Before.txt
 }
 
 
 #------------------------------------------
 function afterOutput
 {
-Get-PublicFolder \ -recurse -ResultSize Unlimited | where{$_.MailEnabled -eq "True"} | Get-MailPublicFolder -resultSize Unlimited | Out-File Mail-Public-Folders-After.csv
+Get-PublicFolder \ -recurse -ResultSize Unlimited | where{$_.MailEnabled -eq "True"} | Get-MailPublicFolder -resultSize Unlimited | ft Alias, Identity -AutoSize| Out-File Mail-Public-Folders-After.txt
 }
 
 
