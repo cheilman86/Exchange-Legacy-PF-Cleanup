@@ -3,7 +3,7 @@
 	Name: PF-Find-Clean.ps1
 	Original Author: Chris Heilman
 	Requires: Exchange Management Shell (Exchange Server 2010) and administrator rights on the Exchange server and Public Folders.
-	Version: 1.0 -- 08/31/2017
+	Version: 1.1 -- 09/08/2017
 
 	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
 	BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -38,9 +38,57 @@ Param(
    )
 
 #------------------------------------------
-# Setting our main variable 
+# Checking Exchange Versions and Server Name
+function getVersion 
+{
+Write-Host "Script starting at:" -foregroundcolor White
+Get-Date
+	$nl
+        Write-Host "----------------------------" -foregroundcolor Green
 
+	Write-Host "Checking Exchange Version..." -foregroundcolor White
+    $nl
+    $script:serverName = Hostname
+	Write-Host "Server Name: $serverName" -foregroundcolor Green
+        Write-Host "----------------------------" -foregroundcolor Green
+	$nl
+        $nl
+        
+	$script:exVer = (get-exchangeserver $serverName).admindisplayversion
+		$exVerMajor = $exVer.major
+		$exVerMinor = $exVer.minor
+
+	switch ($exVerMajor) {
+        "08" {
+	        $script:exVer = "2007"
+        }
+        "14" {
+	        $script:exVer = "2010"
+        }	
+		
+    default {
+		write-host "This script is only for Exchange 2007 and 2010 servers." -foregroundcolor red $nl
+		    do
+			{
+				Stop-Transcript
+                Write-Host
+				$continue = Read-Host "Press <Enter> key to exit..." -foregroundcolor Yellow
+			}
+			While ($continue -notmatch $null)
+		    exit }
+			}
+}
+
+
+#------------------------------------------
+# Setting our main variables
+
+# Our list of objections
 $MPF = Get-MailPublicFolder -resultSize Unlimited | where {$_.Alias.ToCharArray() -contains ' ' -or $_.Alias.ToCharArray() -contains '@' -or $_.Alias.ToCharArray() -contains ',' -or $_.Alias.ToCharArray() -contains ':' -or $_.Alias.ToCharArray() -contains ';' -or $_.Alias.ToCharArray() -contains '(' -or $_.Alias.ToCharArray() -contains ')' -or $_.Alias.ToCharArray() -contains '\'}
+
+
+# The count of objections
+$MPFCount = ($MPF | measure).Count
 
 #------------------------------------------
 #newLine shortcut
@@ -56,6 +104,7 @@ function transcriptStart
 
 {
 Start-Transcript PublicFolder-Find-Clean.txt -append
+$nl
 }
 
 
@@ -64,6 +113,7 @@ Start-Transcript PublicFolder-Find-Clean.txt -append
 function transcriptStop
 
 {
+$nl
 Stop-Transcript
 }
 
@@ -78,7 +128,7 @@ Get-PublicFolder \ -recurse -ResultSize Unlimited | where{$_.MailEnabled -eq "Tr
 #------------------------------------------
 function afterOutput
 {
-Get-PublicFolder \ -recurse -ResultSize Unlimited | where{$_.MailEnabled -eq "True"} | Get-MailPublicFolder -resultSize Unlimited | ft Alias, Identity -AutoSize| Out-File Mail-Public-Folders-After.txt
+Get-PublicFolder \ -recurse -ResultSize Unlimited | where{$_.MailEnabled -eq "True"} | Get-MailPublicFolder -resultSize Unlimited | ft Alias, Identity -AutoSize | Out-File Mail-Public-Folders-After.txt
 }
 
 
@@ -89,10 +139,9 @@ function sortMailPF
 {
 $nl
 
-$MPFCount = ($MPF).count
+If ($MPFCount -ne $null){$MPFCount = $MPFCount}
 
-If ($MPFCount -eq $null){$MPFCount = 0}
-Else {$MPFCount = $MPFCount}
+Else {$MPFCount = 0}
 
 
 Write-Host "----------------------------" -foregroundcolor Green
@@ -121,69 +170,6 @@ $nl
 
 }
 
-#------------------------------------------
-# Showing what objects we have found:
-
-function findItems
-{
-
-Write-Host "----------------------------" -foregroundcolor Green
-$nl
-Write-Host "What we found:" -foregroundcolor white
-$nl
-
-$space = $MPF | where {$_.alias -like '* *'}
-$spaceCount = ($space).count
-If ($spaceCount -eq $null){$spaceCount = 0}
-Write-Host "Found $spaceCount Spaces in an Alias." -foregroundcolor Yellow
-$nl
-
-$comma = $MPF | where {$_.alias -like '*,*'}
-$commaCount = ($comma).count
-If ($commaCount -eq $null){$commaCount = 0}
-Write-Host "Found $commaCount Commas in an Alias." -foregroundcolor Yellow
-$nl
-
-$at = $MPF | where {$_.alias -like '*@*'}
-$atCount = ($at).count
-If ($atCount -eq $null){$atCount = 0}
-Write-Host "Found $atCount '@' in an Alias." -foregroundcolor Yellow
-$nl
-
-$open = $MPF | where {$_.alias -like '*(*'}
-$openCount = ($open).count
-If ($openCount -eq $null){$openCount = 0}
-Write-Host "Found $openCount '(' in an Alias." -foregroundcolor Yellow
-$nl
-
-$close = $MPF | where {$_.alias -like '*)*'}
-$closeCount = ($close).count
-If ($closeCount -eq $null){$closeCount = 0}
-Write-Host "Found $closeCount ')' in an Alias." -foregroundcolor Yellow
-$nl
-
-$colon = $MPF | where {$_.alias -like '*:*'}
-$colonCount = ($colon).count
-If ($colonCount -eq $null){$colonCount = 0}
-Write-Host "Found $colonCount ':' in an Alias." -foregroundcolor Yellow
-$nl
-
-$semicolon = $MPF | where {$_.alias -like '*;*'}
-$semicolonCount = ($semicolon).count
-If ($semicolonCount -eq $null){$semicolonCount = 0}
-Write-Host "Found $semicolonCount ';' in an Alias." -foregroundcolor Yellow
-$nl
-
-$backslash = $MPF | where {$_.alias -like '*\*'}
-$backslashCount = ($backslash).count
-If ($backslashCount -eq $null){$backslashCount = 0}
-Write-Host "Found $backslashCount '\' in an Alias." -foregroundcolor Yellow
-$nl
-
-Write-Host "----------------------------" -foregroundcolor Green
-
-}
-
 
 #------------------------------------------
 # Previewing our replacement of Special Characters with an Hypens "-"
@@ -204,7 +190,7 @@ if($newAlias -ne $null){
 	    $newAlias = $newAlias.Replace(';', '-')
 	    $newAlias = $newAlias.Replace('\', '-')
 		$newAlias = $newAlias.Trim()
-			Write-Host("New Alias is now: {0}" -f $newAlias) -foregroundcolor Cyan 
+			Write-Host("New Alias would be: {0}" -f $newAlias) -foregroundcolor Cyan 
 }
 else
 {
@@ -282,7 +268,7 @@ function Main {
 If ($Repair -eq $false)
 	{
 	transcriptStart
-	$nl
+	getVersion
     If($MPF -ne $null)
 	{
 		Write-Host "=====================================================================================" -foregroundcolor Green $nl
@@ -290,30 +276,31 @@ If ($Repair -eq $false)
 		Write-Host "=====================================================================================" -foregroundcolor Green 
 
 	sortMailPF
-	findItems
 	$nl
 		write-host "Preview of the changes:" -foregroundcolor White
 	$nl
+        Write-Host "----------------------------" -foregroundcolor Green
 	previewReplace
-	$nl
-		write-host "Please re-run script with -Repair $true to fix the found items" -foregroundcolor White
+	    Write-Host "----------------------------" -foregroundcolor Green
+        $nl
+        	write-host "Please re-run script with -Repair $true to fix the found items" -foregroundcolor Red
 		$nl}
     Else {
 	Write-Host "No Bad objects or spaces found!" $nl$nl "Ending Script" -foregroundcolor Green}
-    $nl
 	transcriptStop
 	}
-	
+
 	
 	
 Elseif ($Repair -eq $true)
 	{
 	transcriptStart
 	$nl
+	getVersion
 	If($MPF -ne $null)
 	{
 	$nl
-		Write-host "Outputting Mail-enabled Public Folders before changes" -foregroundcolor DarkYellow
+		Write-host "Outputting Mail-enabled Public Folders before changes [Mail-Public-Folders-Before.txt]" -foregroundcolor DarkYellow
 	beforeOutput
 	$nl	
 		Write-Host "============================" -foregroundcolor Green $nl
@@ -321,7 +308,6 @@ Elseif ($Repair -eq $true)
 		Write-Host "============================" -foregroundcolor Green 
 
 	sortMailPF
-	findItems
 	$nl
 		write-host "Preview of the changes:" -foregroundcolor White
 	$nl
@@ -329,11 +315,11 @@ Elseif ($Repair -eq $true)
 		Write-Host "Checking Mail Public Folders again" -foregroundcolor White
     $MPF2 = Get-MailPublicFolder -resultSize Unlimited | where {$_.Alias.ToCharArray() -contains ' ' -or $_.Alias.ToCharArray() -contains '@' -or $_.Alias.ToCharArray() -contains ',' -or $_.Alias.ToCharArray() -contains ':' -or $_.Alias.ToCharArray() -contains ';' -or $_.Alias.ToCharArray() -contains '(' -or $_.Alias.ToCharArray() -contains ')' -or $_.Alias.ToCharArray() -contains '\'}
 	sortMailPFagain
-		Write-Host "Outputting Mail-enabled Public Folders after changes" -foregroundcolor DarkYellow
+		Write-Host "Outputting Mail-enabled Public Folders after changes [Mail-Public-Folders-After.txt]" -foregroundcolor DarkYellow
+    afterOutput
 	$nl}
 	Else {
 	Write-Host "No Bad objects or spaces found!" $nl$nl "Ending Script" -foregroundcolor Green}
-	$nl
 	transcriptStop
 	}
 }
