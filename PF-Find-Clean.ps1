@@ -3,7 +3,7 @@
 	Name: PF-Find-Clean.ps1
 	Original Author: Chris Heilman
 	Requires: Exchange Management Shell (Exchange Server 2010) and administrator rights on the Exchange server and Public Folders.
-	Version: 1.1 -- 09/08/2017
+	Version: 1.2 -- 09/12/2017
 
 	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
 	BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -34,7 +34,9 @@
 
 Param(
   [Parameter(Mandatory=$True, Position=1)]
-   [string]$Repair
+   [string]$Repair,
+
+   [string]$Output
    )
 
 #------------------------------------------
@@ -181,7 +183,7 @@ foreach($pf in $MPF){
    $newAlias = $pf.alias
 if($newAlias -ne $null){
         $newAlias = $newAlias.Trim()
-	    $newAlias = $newAlias.Replace(' ', '-')
+	    $newAlias = $newAlias.Replace(' ', '')
 		$newAlias = $newAlias.Replace(',', '-')
 	    $newAlias = $newAlias.Replace('@', '-')
 	    $newAlias = $newAlias.Replace('(', '-')
@@ -213,7 +215,7 @@ foreach($pf in $MPF){
     $newAlias = $pf.alias
 	if($newAlias -ne $null){
 	    $newAlias = $newAlias.Trim()
-	    $newAlias = $newAlias.Replace(' ', '-')
+	    $newAlias = $newAlias.Replace(' ', '')
 		$newAlias = $newAlias.Replace(',', '-')
 	    $newAlias = $newAlias.Replace('@', '-')
 	    $newAlias = $newAlias.Replace('(', '-')
@@ -241,20 +243,6 @@ $nl
 Write-Host "----------------------------" -foregroundcolor Green
 $nl
 
-}
-
-
-#------------------------------------------
-# Replacement of Special Characters with an Hypens "-"
-
-function finalOutput
-
-{
-Write-Host "Here's your Mail-enabled public folders now:" -ForegroundColor Yellow
-
-Get-PublicFolder \ -recurse -ResultSize Unlimited | where{$_.MailEnabled -eq "True"} | Get-MailPublicFolder -resultSize Unlimited
-
-$nl
 }
 
 
@@ -299,9 +287,12 @@ Elseif ($Repair -eq $true)
 	getVersion
 	If($MPF -ne $null)
 	{
-	$nl
+	If($Output -eq $true)
+	{$nl
 		Write-host "Outputting Mail-enabled Public Folders before changes [Mail-Public-Folders-Before.txt]" -foregroundcolor DarkYellow
-	beforeOutput
+    beforeOutput
+          }
+	Else {Write-Host "No before Output chosen" -foregroundcolor DarkYellow}
 	$nl	
 		Write-Host "============================" -foregroundcolor Green $nl
 		Write-Host "Sorting through the Mail-enabled Public Folders to find Spaces and Special Characters" -foregroundcolor White $nl
@@ -315,9 +306,13 @@ Elseif ($Repair -eq $true)
 		Write-Host "Checking Mail Public Folders again" -foregroundcolor White
     $MPF2 = Get-MailPublicFolder -resultSize Unlimited | where {$_.Alias.ToCharArray() -contains ' ' -or $_.Alias.ToCharArray() -contains '@' -or $_.Alias.ToCharArray() -contains ',' -or $_.Alias.ToCharArray() -contains ':' -or $_.Alias.ToCharArray() -contains ';' -or $_.Alias.ToCharArray() -contains '(' -or $_.Alias.ToCharArray() -contains ')' -or $_.Alias.ToCharArray() -contains '\'}
 	sortMailPFagain
+	If($Output -eq $true)
+	{$nl
 		Write-Host "Outputting Mail-enabled Public Folders after changes [Mail-Public-Folders-After.txt]" -foregroundcolor DarkYellow
     afterOutput
-	$nl}
+          }
+	Else {Write-Host "No After Output chosen" -foregroundcolor DarkYellow}
+  	$nl}
 	Else {
 	Write-Host "No Bad objects or spaces found!" $nl$nl "Ending Script" -foregroundcolor Green}
 	transcriptStop
